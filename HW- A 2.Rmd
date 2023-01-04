@@ -1,0 +1,371 @@
+---
+title: "Question 3 - HW 2"
+author: "Safia"
+date: '2022-11-12'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+library(readr)
+library(tidyverse)
+library(Hmisc)
+data.t <- read.csv("titanic3.csv")
+options(scipen = 999)
+
+```
+#Question 1
+#Part A 
+#Dimension of the dataset 
+```{r}
+describe(data.t)
+str(data.t)
+#This dataset consist of 1309 observations for 14 varaiables. 
+#Type of varaiables in the data set 
+#pclass looks like numerical but it is a categorical, ordinal varaiable.
+#survived looks like numerical but is a categorical, binary varaiable.
+#name is a categorical nominal varaiable.
+#sex is a categorical varaiable.
+#age is a numerical varaiable.
+#sibsp is a numerical varaiable.
+#parch is a numerical varaiable.
+#ticket is a string, character varaiable.
+#fare is a numerical varaiable.
+#cabin is a string, character varaiable.
+#embarked is a categorical varaiable.
+#boat  is a string, character varaiable.
+#body is a numerical varaiable.
+#home.dest is a categorical varaiable.
+
+```
+#Part B 
+#Dataset Cleaning 
+#Step 1 Finding Missing Values in the dataset and treating them.
+```{r}
+summary(data.t)
+#The data summary shows these variables have missing values, age=263, fare=1 and body has the maximum number = 1188 these are all numerical variables but using describe function we get to see that there are missing values in home.dest, body, boat, cabin and embarked.
+```
+#Imputing Missing Values in AGE 
+```{r}
+#Imputing missing values for the age because we can't remove it as it is in large number and we have small size of data set.For replacing we can either take, mean, median & mode.
+#To check whether we have to use mean or median we will first see distribution of data. 
+hist(data.t$age)
+#Looking at the distribution our data is not skewd so we will use mean to impute missing values.
+data.t$age[is.na(data.t$age)] <- mean(data.t$age, na.rm = TRUE)
+#Recheck 
+sum(is.na(data.t$age))
+unique(data.t$age)
+```
+#Imputing Missing Values in fare
+```{r}
+#imputing 1 missing value with mean, though it's not going to effect alot.
+data.t$fare[is.na(data.t$fare)] <- mean(data.t$fare, na.rm = TRUE)
+#Recheck 
+sum(is.na(data.t$fare))
+unique(data.t$fare)
+```
+#Imputing Missing Values in Cabin 
+```{r}
+#Cabin has 1014 missing values out of 1309, so one approach is to delete this varaiable from the dataset which is around 80% of total.But we can still remove varaiable later stage so using other approach.
+#The other approach is that cabin is a character so we can use mode but this doesn't make sense as we can't put anyone in any cabin and it effects the information as it will be interpreted as that individual has this cabin so wee will replace missing vales with unknown.
+library(dplyr)
+data.t$cabin[data.t$cabin==""]<-"unknown"
+unique(data.t$cabin)
+#rechecking 
+sum(is.null(data.t$cabin))
+```
+#Imputing Missing Values in Embarked 
+```{r}
+data.t$embarked[data.t$embarked==""]<-"unknown"
+unique(data.t$embarked)
+#rechecking 
+sum(is.null(data.t$embarked))
+```
+#Imputing Missing Values in Boat 
+```{r}
+#We can't take mode to impute missing values in boat and logically we first have to check that if a person survive only then he will get a boat. so if there is a missing value that a person survived and didn't get the boat only then it will considered as missing otherwise it's not survived and the empty indicates "not survived".
+#First we will find how many survived.
+data.sur <- filter(data.t, data.t$survived == 1,na.rm=TRUE)
+sum(is.null(data.sur))
+# Now we know that all the missing values in the boat showes that they represent not survived. 
+#Imputing missing values with dead in the boat.
+data.t$boat[data.t$boat==""]<-"dead"
+unique(data.t$boat)
+#rechecking 
+sum(is.null(data.t$boat))
+
+```
+#Imputing Missing values in Body 
+```{r}
+#For body we have to use this logic that if the person is dead and there is no value in the body recovery than impute missing value with 0 reflecting body is not found.
+data.t$body <- ifelse(data.t$survived==0, data.t$body, 0)
+data.t$body <- ifelse(is.na(data.t$body)==TRUE, 0, data.t$body)
+
+```
+
+#Imputing Missing Values in Home.dest
+```{r}
+#Home.dest is unique and is specific to each individual we can't use mode to fill in the empty observations and due to small data size we can't delete the missing values so we will impute with character unknown.
+data.t$home.dest[data.t$home.dest==""]<-"unknown"
+#unique(data.t$home.dest)
+#rechecking 
+sum(is.null(data.t$home.dest))
+```
+#Rechecking the data to make sure there is no missing values in the data 
+```{r}
+sum(is.na(data.t))
+```
+#Step 2 Finding duplicates in the dataset 
+```{r}
+#duplicated(data.t)
+sum(duplicated(data.t))
+#There are no duplicates in the dataset.
+```
+#Step 3 Finding outliers in the dataset
+```{r}
+#First we will use data visualization to check the distribution of data.
+#For numerical values we will plot histogram
+dft.num.var<- data.t[c(5,6,7,9,13)]
+#dft.num.var
+hist.data.frame(dft.num.var)
+
+```
+```{r}
+boxplot(data.t$age ~ data.t$survived)
+boxplot(data.t$sibsp ~ data.t$survived)
+boxplot(data.t$parch ~ data.t$survived)
+boxplot(data.t$fare ~ data.t$survived)
+boxplot(data.t$body ~ data.t$survived)
+#By looking at the box plots we can see the variables have outlines in the data.
+#so, next we will try to find extreme and mild outliers.
+
+
+```
+```{r}
+#Finding the Extreme Outlines in the data.
+#From the above boxplot we can see that there are outliers but not alot.
+#Outliers for age 
+length(data.t$age)
+quartiles.age <- quantile(data.t$age, probs = c(0.25, 0.75), na.rm = FALSE)
+interquartile.age <- IQR(data.t$age)
+
+
+lower <- quartiles.age[1] - 3*interquartile.age
+upper <- quartiles.age[2] + 3*interquartile.age
+
+no.outlier.age <- subset(data.t$age, data.t$age>lower & data.t$age < upper)
+length(no.outlier.age)
+
+#The output shows that outliers are minimum so we are not deleting or treating it, keeping it as it is.
+```
+```{r}
+#Outliers for fare 
+length(data.t$fare)
+quartiles.fare <- quantile(data.t$fare, probs = c(0.25, 0.75), na.rm = FALSE)
+interquartile.fare <- IQR(data.t$fare)
+
+
+lower <- quartiles.fare[1] - 3*interquartile.fare
+upper <- quartiles.fare[2] + 3*interquartile.fare
+
+no.outlier.fare <- subset(data.t$fare, data.t$fare>lower & data.t$fare < upper)
+length(no.outlier.fare)
+
+#The output shows that outliers are less in number so we are not deleting or treating it, keeping it as it is.
+```
+```{r}
+#Outliers for sibsp 
+length(data.t$sibsp)
+quartiles.sibsp <- quantile(data.t$sibsp, probs = c(0.25, 0.75), na.rm = FALSE)
+interquartile.sibsp <- IQR(data.t$sibsp)
+
+
+lower <- quartiles.sibsp[1] - 3*interquartile.sibsp
+upper <- quartiles.sibsp[2] + 3*interquartile.sibsp
+
+no.outlier.sibsp<- subset(data.t$sibsp, data.t$sibsp>lower & data.t$sibsp < upper)
+length(no.outlier.sibsp)
+
+#The output shows that outliers are less in number so we are not deleting or treating it, keeping it as it is.
+```
+```{r}
+#Outliers for parch 
+length(data.t$parch )
+quartiles.parch  <- quantile(data.t$parch , probs = c(0.25, 0.75), na.rm = FALSE)
+interquartile.parch <- IQR(data.t$parch )
+
+
+lower <- quartiles.parch [1] - 3*interquartile.parch 
+upper <- quartiles.parch [2] + 3*interquartile.parch 
+
+no.outlier.parch <- subset(data.t$parch , data.t$parch >lower & data.t$parch < upper)
+length(no.outlier.parch )
+
+#The output shows that there are no outliers.
+```
+```{r}
+#Outliers for body 
+length(data.t$body )
+quartiles.body  <- quantile(data.t$body  , probs = c(0.25, 0.75), na.rm = FALSE)
+interquartile.body  <- IQR(data.t$body )
+
+
+lower <- quartiles.body  [1] - 3*interquartile.body 
+upper <- quartiles.body  [2] + 3*interquartile.body  
+
+no.outlier.body  <- subset(data.t$body  , data.t$body  >lower & data.t$body  < upper)
+length(no.outlier.body)
+
+#The output shows that there are no outliers.
+```
+#The dataset has alot of missing values and to treat them there are two approaches either to delete the missing values from dataset or to impute them with mean median or mode. The dataset size is small so its not the right approach to delete them so I imputed it beased on type of varaiable.
+#For numerical varaiables I have used mean to impute the missing values and for categorical based on the nature of the varaiable I imputed with the characters or zero as explained above.
+#This dataset doesn't have any duplicates.
+#For outliers I have first computed using data visualization by plotting box plots which shows there are outliers. To check the outliers I used extreme outliers with a logic that my datasize is small and I should only consider extreme outliers technique but the data doesn't have alot of extreme outliers.Taking the results in consideration the decision is to keep the outliers because of small number, it won't have drastic effects on our results.
+#For errors I have used describe code to see all the unique values in the dataset to find if there are any errors but this dataset has no errors.
+
+#Part c 
+```{r}
+summary(data.t)
+#For numerical varaiables 
+#Mean 
+lapply(dft.num.var, mean)
+```
+```{r}
+#Median
+lapply(dft.num.var, median)
+```
+```{r}
+#Standard Deviation
+lapply(dft.num.var, sd)
+```
+```{r}
+#Maximum
+lapply(dft.num.var, max)
+```
+```{r}
+#Minimum
+lapply(dft.num.var, min)
+```
+```{r}
+#Range 
+lapply(dft.num.var, range)
+```
+```{r}
+library(pastecs)
+stat.desc(data.t)
+```
+```{r}
+#Mode for Categorical 
+getmode <- function(v) {
+   mode.e <- unique(v)
+   mode.e[which.max(tabulate(match(v, mode.e)))]
+}
+getmode(data.t$embarked)
+getmode(data.t$pclass)
+getmode(data.t$survived)
+getmode(data.t$sex)
+getmode(data.t$age)
+getmode(data.t$sibsp)
+getmode(data.t$parch)
+getmode(data.t$ticket)
+getmode(data.t$cabin)
+getmode(data.t$boat)
+getmode(data.t$home.dest)
+```
+#Part d - Dummy Varaiables for all Categorical 
+```{r}
+library(fastDummies)
+#
+#Dummy Varaiable of P class 
+data.t <- dummy_cols(data.t, 
+                   select_columns = "pclass")
+#Dummy varaiables for Survived
+data.t <- dummy_cols(data.t, 
+                   select_columns = "survived")
+#Dummy varaiables for Sex
+data.t <- dummy_cols(data.t, 
+                   select_columns = "sex")
+#Dummy varaiables for Embarked
+data.t <- dummy_cols(data.t, 
+                   select_columns = "embarked")
+data.t[15,]
+
+#Interpreting the 15th observation
+#Mr.Algernon is an old man of 80 years belongs from Hessle,Yorks boarded from Southhampton port, who was solo travelling in the first class purchased ticket 27042 for 30, staying in cabin A23, got on the boat B when the ship crashed and survived.
+```
+
+#Part e 
+
+
+```{r}
+#Correlation for Numerical Varaiables 
+#Finding correlation between age, sibsp and parch to see the relationship and to find out that how many peopl
+library(psych)
+cor.num = data.t[c("age","sibsp","parch")]
+corr.test(cor.num,
+          use    = "pairwise",
+          method = "pearson",
+          adjust = "none")
+
+```
+
+
+```{r}
+library(PerformanceAnalytics)
+
+chart.Correlation(cor.num,
+                   method="pearson",
+                   histogram=TRUE,
+                   pch=16)
+#For this I have used pearson because it is quite sensitive to the outliers.
+#The correlation between age and sibsp is very week and shows no association.
+#The correlation between age and parch is very week and shows no association.
+#The correlation between sibsp and parch shows association but weak relationship.
+#But the stars shows that theses are highly statically significant.
+```
+```{r}
+heatmap(cor(dft.num.var), Rowv = NA, Colv = NA)
+#The visual representation of correlation amonge all numerical varaiables in the dataset.
+```
+
+
+
+
+
+#Correlation between categorical varaiables 
+```{r}
+#Finding correlation between survived and sex 
+library(pivottabler)
+library(lessR)
+Tab <- table(data.t$survived, data.t$sex)
+Tab
+T <- chisq.test(Tab)
+T
+```
+#To find that how many females and males survived.Interpreting the above output, we get p value less than 0.05 which means that we reject the null hypothesis and sex and survived (the two varaiables) are not independent of eachother and shows correlation amonge each other. 
+```{r}
+#Expected Count 
+T$expected
+```
+#Finding correlation between one numerical and 1 categorical we will use Point Biserial Correlation. We want to see is there a correlation between p class and survivor to check that was there any status based discrimation saving people lives in titanic crash.
+```{r}
+library(ltm)
+biserial.cor(data.t$pclass, data.t$survived, use = c("all.obs"), level = 2)
+```
+
+#From the above output we can conclude that the coffecient correlation is -0.31, shows there is a weak association and significant at 90% significance level.
+
+
+
+#Part f 
+#Principal Components Analysis 
+#In this data we have 5 numerical varaiables and to do dimension reduction we will use PCA technique. It will help us to reduce the varaiables by keeping the essence of original varaiables.We can also say that it's the  best way to summarise all the 5 numerical varaiable data and to find trends and patterns. Our goal is to reduce the number of varaiables.By using this technique we will get new varaiables PC's with values that are linear composition of the orignal varaiables. Depending on the varaiation we want, we may select PC's less than 5 because original varaiables are 5.The interpretability increases between uncorrelated varaiables and the varaince is maximized.
+#For this first of all we have to choose numerical varaiables taht are correlated and fine the correlation amonge them then we will run the PCA test and check which contributes in the more varaiablitlty as compared to the other. Based on how much varaiance is accepted we will select the PC showing the higher varaiance which will definetly be less than 5. may be we can get 90% varaiance in the firct PC and our dimension in reduced from 5 to 1.Then we look at the PCA score that is the projected values of the varaiables selected after subtracting the mean.If we use covaraiance matrix than we have to do normilaation and do PCA again but if we do correlation matrix than it means that our data is already normalized and we don't have to do normalization and the whole process again.
+
+
